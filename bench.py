@@ -55,15 +55,16 @@ def awkward_bench():
     return [total_sec], ragged_data
 
 
-def tf_bench():
+def tf_bench(device):
     """
     Using tensorflow Ragged tensors for sqrt. Type/format
     conversions are included in the timing.
     """
     ragged_data = setup()
     start = time.perf_counter()
-    ragged_data = tf.ragged.constant(ragged_data)
-    ragged_data = tf.math.sqrt(ragged_data)
+    with tf.device(device):
+        ragged_data = tf.ragged.constant(ragged_data)
+        ragged_data = tf.math.sqrt(ragged_data)
     end = time.perf_counter()
     total_sec = end - start
     return [total_sec], ragged_data
@@ -88,7 +89,9 @@ def main_bench():
     check_result(orig_data, result)
     bench_results["awk_array"], result = awkward_bench()
     check_result(orig_data, result)
-    bench_results["tf_ragged"], result = tf_bench()
+    bench_results["tf_ragged_gpu"], result = tf_bench(device="/device:GPU:0")
+    check_result(orig_data, result)
+    bench_results["tf_ragged_cpu"], result = tf_bench(device="/device:CPU:0")
     check_result(orig_data, result)
     plot_results(bench_results)
 
