@@ -20,7 +20,7 @@ def setup():
 
 
 def check_result(orig_data, result):
-    assert len(orig_data) == len(result)
+    assert len(result) == len(orig_data)
     assert_allclose(result[10][1], math.sqrt(orig_data[10][1]))
 
 
