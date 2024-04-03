@@ -7,6 +7,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import awkward as ak
+import pandas as pd
 
 
 def setup():
@@ -34,7 +35,7 @@ def raw_python_bench():
             ragged_data[row][col] = math.sqrt(ragged_data[row][col])
     end = time.perf_counter()
     total_sec = end - start
-    return total_sec, ragged_data
+    return [total_sec], ragged_data
 
 
 def awkward_bench():
@@ -47,7 +48,19 @@ def awkward_bench():
     ragged_data = np.sqrt(ak.Array(ragged_data.tolist()))
     end = time.perf_counter()
     total_sec = end - start
-    return total_sec, ragged_data
+    return [total_sec], ragged_data
+
+
+def plot_results(bench_results):
+    fig, ax = plt.subplots(1, 1)
+    fig.set_size_inches(8, 4)
+    df = pd.DataFrame.from_dict(data=bench_results,
+                                orient="index",
+                                columns=["Time (s)"])
+    df.plot.bar(ax=ax, legend=None)
+    ax.set_ylabel("Elementwise sqrt time (s)")
+    fig.tight_layout()
+    fig.savefig("bench_sqrt_ragged.png", dpi=300)
 
 
 def main_bench():
@@ -57,7 +70,7 @@ def main_bench():
     check_result(orig_data, result)
     bench_results["awk_array"], result = awkward_bench()
     check_result(orig_data, result)
-    print(bench_results)
+    plot_results(bench_results)
 
 
 if __name__ == "__main__":
