@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import awkward as ak
 import pandas as pd
 import tensorflow as tf
+import torch
 
 
 def setup():
@@ -70,6 +71,21 @@ def tf_bench(device):
     return [total_sec], ragged_data
 
 
+def torch_bench(device):
+    """
+    Using torch nested tensors for sqrt. Type/format
+    conversions are included in the timing.
+    """
+    ragged_data = setup()
+    start = time.perf_counter()
+    with torch.device(device):
+        ragged_data = torch.nested.nested_tensor(ragged_data.tolist())
+        ragged_data = torch.sqrt(ragged_data)
+    end = time.perf_counter()
+    total_sec = end - start
+    return [total_sec], ragged_data
+
+
 def plot_results(bench_results):
     fig, ax = plt.subplots(1, 1)
     fig.set_size_inches(8, 4)
@@ -93,6 +109,11 @@ def main_bench():
     check_result(orig_data, result)
     bench_results["tf_ragged_cpu"], result = tf_bench(device="/device:CPU:0")
     check_result(orig_data, result)
+    # NOTE: torch nested_tensor does not support sqrt op at this time
+    #bench_results["torch_nested_cpu"], result = torch_bench(device="cpu")
+    #check_result(orig_data, result)
+    #bench_results["torch_nested_gpu"], result = torch_bench(device="mps")
+    #check_result(orig_data, result)
     plot_results(bench_results)
 
 
