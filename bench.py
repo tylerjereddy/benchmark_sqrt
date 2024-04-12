@@ -101,13 +101,13 @@ def plot_results(bench_results):
 def main_bench():
     orig_data = setup()
     bench_results = {}
-    bench_results["raw_python"], result = raw_python_bench()
+    bench_results["Raw Python"], result = raw_python_bench()
     check_result(orig_data, result)
-    bench_results["awk_array"], result = awkward_bench()
+    bench_results["Awkward Array"], result = awkward_bench()
     check_result(orig_data, result)
-    bench_results["tf_ragged_gpu"], result = tf_bench(device="/device:GPU:0")
+    bench_results["Tensorflow Ragged GPU"], result = tf_bench(device="/device:GPU:0")
     check_result(orig_data, result)
-    bench_results["tf_ragged_cpu"], result = tf_bench(device="/device:CPU:0")
+    bench_results["Tensorflow Ragged CPU"], result = tf_bench(device="/device:CPU:0")
     check_result(orig_data, result)
     # NOTE: torch nested_tensor does not support sqrt op at this time
     #bench_results["torch_nested_cpu"], result = torch_bench(device="cpu")
