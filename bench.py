@@ -52,10 +52,13 @@ def awkward_bench():
     """
     ragged_data = setup()
     start = time.perf_counter()
-    ragged_data = np.sqrt(ak.Array(ragged_data.tolist()))
+    ragged_data = ak.Array(ragged_data.tolist())
+    granular_start = time.perf_counter()
+    ragged_data = np.sqrt(ragged_data)
+    granular_sec = time.perf_counter() - granular_start
     end = time.perf_counter()
     total_sec = end - start
-    return [total_sec], ragged_data
+    return [total_sec], [granular_sec], ragged_data
 
 
 def tf_bench(device):
@@ -67,10 +70,12 @@ def tf_bench(device):
     start = time.perf_counter()
     with tf.device(device):
         ragged_data = tf.ragged.constant(ragged_data)
+        granular_start = time.perf_counter()
         ragged_data = tf.math.sqrt(ragged_data)
+        granular_sec = time.perf_counter() - granular_start
     end = time.perf_counter()
     total_sec = end - start
-    return [total_sec], ragged_data
+    return [total_sec], [granular_sec], ragged_data
 
 
 def torch_bench(device):
@@ -102,10 +107,13 @@ def pytaco_bench():
     for row in range(len(ragged_data)):
         for col in range(len(ragged_data[row])):
             A.insert([row, col], ragged_data[row][col])
-    ragged_data = pt.tensor_sqrt(A, out_format=pt.dense).to_array()
+    granular_start = time.perf_counter()
+    ragged_data = pt.tensor_sqrt(A, out_format=pt.dense)
+    granular_sec = time.perf_counter() - granular_start
+    ragged_data = ragged_data.to_array()
     end = time.perf_counter()
     total_sec = end - start
-    return [total_sec], ragged_data
+    return [total_sec], [granular_sec], ragged_data
 
 
 def plot_results(bench_results):
@@ -114,7 +122,7 @@ def plot_results(bench_results):
     df = pd.DataFrame.from_dict(data=bench_results,
                                 orient="index",
                                 columns=["Time (s)"])
-    df.plot.bar(ax=ax, legend=None)
+    df.plot.bar(ax=ax, legend=None, log=True)
     ax.set_ylabel("Elementwise sqrt time (s)")
     fig.tight_layout()
     fig.savefig("bench_sqrt_ragged.png", dpi=300)
@@ -125,13 +133,13 @@ def main_bench():
     bench_results = {}
     bench_results["Raw Python"], result = raw_python_bench()
     check_result(orig_data, result)
-    bench_results["Awkward Array"], result = awkward_bench()
+    bench_results["Awkward Array"], bench_results["Awkward Array granular"], result = awkward_bench()
     check_result(orig_data, result)
-    bench_results["Tensorflow Ragged GPU"], result = tf_bench(device="/device:GPU:0")
+    bench_results["Tensorflow Ragged GPU"], bench_results["Tensorflow Ragged GPU granular"], result = tf_bench(device="/device:GPU:0")
     check_result(orig_data, result)
-    bench_results["Tensorflow Ragged CPU"], result = tf_bench(device="/device:CPU:0")
+    bench_results["Tensorflow Ragged CPU"], bench_results["Tensorflow Ragged CPU granular"], result = tf_bench(device="/device:CPU:0")
     check_result(orig_data, result)
-    bench_results["PyTaco"], result = pytaco_bench()
+    bench_results["PyTaco"], bench_results["PyTaco granular"], result = pytaco_bench()
     check_result(orig_data, result)
     # NOTE: torch nested_tensor does not support sqrt op at this time
     #bench_results["torch_nested_cpu"], result = torch_bench(device="cpu")
