@@ -10,6 +10,8 @@ import awkward as ak
 import pandas as pd
 import tensorflow as tf
 import torch
+import pytaco as pt
+from pytaco import dense, compressed
 
 
 def setup():
@@ -86,6 +88,26 @@ def torch_bench(device):
     return [total_sec], ragged_data
 
 
+def pytaco_bench():
+    ragged_data = setup()
+    start = time.perf_counter()
+    # effectively 0-fill to a sparse tensor:
+    n = ragged_data.shape[0]
+    # pytaco cannot accept the ragged Python object directly
+    A = pt.tensor([n, n],
+                  pt.format([dense, compressed]),
+                  name="A",
+                  dtype=pt.float64)
+    # pay the cost to fill in the CSR-like array
+    for row in range(len(ragged_data)):
+        for col in range(len(ragged_data[row])):
+            A.insert([row, col], ragged_data[row][col])
+    ragged_data = pt.tensor_sqrt(A, out_format=pt.dense).to_array()
+    end = time.perf_counter()
+    total_sec = end - start
+    return [total_sec], ragged_data
+
+
 def plot_results(bench_results):
     fig, ax = plt.subplots(1, 1)
     fig.set_size_inches(8, 4)
@@ -108,6 +130,8 @@ def main_bench():
     bench_results["Tensorflow Ragged GPU"], result = tf_bench(device="/device:GPU:0")
     check_result(orig_data, result)
     bench_results["Tensorflow Ragged CPU"], result = tf_bench(device="/device:CPU:0")
+    check_result(orig_data, result)
+    bench_results["PyTaco"], result = pytaco_bench()
     check_result(orig_data, result)
     # NOTE: torch nested_tensor does not support sqrt op at this time
     #bench_results["torch_nested_cpu"], result = torch_bench(device="cpu")
