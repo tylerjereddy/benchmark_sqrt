@@ -153,7 +153,7 @@ def plot_results(bench_results):
     df = pd.DataFrame.from_dict(data=bench_avgs,
                                 orient="index",
                                 columns=["Time (s)"])
-    df.plot.bar(ax=ax, legend=None, log=True, yerr=list(bench_stds.values()))
+    df.plot.bar(ax=ax, legend=None, log=True, yerr=list(bench_stds.values()), capsize=8)
     ax.set_ylabel("Log of time (s)")
     fig.tight_layout()
     fig.savefig("bench_sqrt_ragged.png", dpi=300)
