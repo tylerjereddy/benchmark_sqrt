@@ -88,6 +88,11 @@ def tf_bench(device, n_trials: int = 1):
             ragged_data = tf.ragged.constant(ragged_data)
             granular_start = time.perf_counter()
             ragged_data = tf.math.sqrt(ragged_data)
+            # crude attempt to avoid potential lazy
+            # eval issues (is that actual problem with tf?)
+            # I didn't want to go as far as trying to force
+            # eager evaluation globally though
+            print(ragged_data[10][1])
             granular_sec = time.perf_counter() - granular_start
             granular_sec_l.append(granular_sec)
         end = time.perf_counter()
