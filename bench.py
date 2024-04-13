@@ -12,7 +12,9 @@ import tensorflow as tf
 import torch
 import pytaco as pt
 from pytaco import dense, compressed
+import joblib
 
+memory = joblib.Memory("joblib_cache", verbose=0)
 
 def setup():
     rng = np.random.default_rng(123)
@@ -31,6 +33,7 @@ def check_result(orig_data, result):
     assert_allclose(result[10][1], math.sqrt(orig_data[10][1]))
 
 
+@memory.cache
 def raw_python_bench(n_trials: int = 1):
     """
     Raw Python on the ragged NumPy array, with no zero-filling.
@@ -48,6 +51,7 @@ def raw_python_bench(n_trials: int = 1):
     return total_sec_l, ragged_data
 
 
+@memory.cache
 def awkward_bench(n_trials: int = 1):
     """
     Using Awkward array to handle the sqrt calculation. The
@@ -69,6 +73,7 @@ def awkward_bench(n_trials: int = 1):
     return total_sec_l, granular_sec_l, ragged_data
 
 
+@memory.cache
 def tf_bench(device, n_trials: int = 1):
     """
     Using tensorflow Ragged tensors for sqrt. Type/format
@@ -91,6 +96,7 @@ def tf_bench(device, n_trials: int = 1):
     return total_sec_l, granular_sec_l, ragged_data
 
 
+@memory.cache
 def torch_bench(device):
     """
     Using torch nested tensors for sqrt. Type/format
@@ -106,6 +112,7 @@ def torch_bench(device):
     return [total_sec], ragged_data
 
 
+@memory.cache
 def pytaco_bench(n_trials: int = 1):
     total_sec_l = []
     granular_sec_l = []
@@ -125,6 +132,7 @@ def pytaco_bench(n_trials: int = 1):
                 A.insert([row, col], ragged_data[row][col])
         granular_start = time.perf_counter()
         ragged_data = pt.tensor_sqrt(A, out_format=pt.dense)
+        ragged_data.evaluate()
         granular_sec = time.perf_counter() - granular_start
         granular_sec_l.append(granular_sec)
         ragged_data = ragged_data.to_array()
