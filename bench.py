@@ -31,51 +31,64 @@ def check_result(orig_data, result):
     assert_allclose(result[10][1], math.sqrt(orig_data[10][1]))
 
 
-def raw_python_bench():
+def raw_python_bench(n_trials: int = 1):
     """
     Raw Python on the ragged NumPy array, with no zero-filling.
     """
-    ragged_data = setup()
-    start = time.perf_counter()
-    for row in range(len(ragged_data)):
-        for col in range(len(ragged_data[row])):
-            ragged_data[row][col] = math.sqrt(ragged_data[row][col])
-    end = time.perf_counter()
-    total_sec = end - start
-    return [total_sec], ragged_data
+    total_sec_l = []
+    for trial in range(n_trials):
+        ragged_data = setup()
+        start = time.perf_counter()
+        for row in range(len(ragged_data)):
+            for col in range(len(ragged_data[row])):
+                ragged_data[row][col] = math.sqrt(ragged_data[row][col])
+        end = time.perf_counter()
+        total_sec = end - start
+        total_sec_l.append(total_sec)
+    return total_sec_l, ragged_data
 
 
-def awkward_bench():
+def awkward_bench(n_trials: int = 1):
     """
     Using Awkward array to handle the sqrt calculation. The
     conversion to ak format is included in the timing.
     """
-    ragged_data = setup()
-    start = time.perf_counter()
-    ragged_data = ak.Array(ragged_data.tolist())
-    granular_start = time.perf_counter()
-    ragged_data = np.sqrt(ragged_data)
-    granular_sec = time.perf_counter() - granular_start
-    end = time.perf_counter()
-    total_sec = end - start
-    return [total_sec], [granular_sec], ragged_data
+    total_sec_l = []
+    granular_sec_l = []
+    for trial in range(n_trials):
+        ragged_data = setup()
+        start = time.perf_counter()
+        ragged_data = ak.Array(ragged_data.tolist())
+        granular_start = time.perf_counter()
+        ragged_data = np.sqrt(ragged_data)
+        granular_sec = time.perf_counter() - granular_start
+        granular_sec_l.append(granular_sec)
+        end = time.perf_counter()
+        total_sec = end - start
+        total_sec_l.append(total_sec)
+    return total_sec_l, granular_sec_l, ragged_data
 
 
-def tf_bench(device):
+def tf_bench(device, n_trials: int = 1):
     """
     Using tensorflow Ragged tensors for sqrt. Type/format
     conversions are included in the timing.
     """
-    ragged_data = setup()
-    start = time.perf_counter()
-    with tf.device(device):
-        ragged_data = tf.ragged.constant(ragged_data)
-        granular_start = time.perf_counter()
-        ragged_data = tf.math.sqrt(ragged_data)
-        granular_sec = time.perf_counter() - granular_start
-    end = time.perf_counter()
-    total_sec = end - start
-    return [total_sec], [granular_sec], ragged_data
+    total_sec_l = []
+    granular_sec_l = []
+    for trial in range(n_trials):
+        ragged_data = setup()
+        start = time.perf_counter()
+        with tf.device(device):
+            ragged_data = tf.ragged.constant(ragged_data)
+            granular_start = time.perf_counter()
+            ragged_data = tf.math.sqrt(ragged_data)
+            granular_sec = time.perf_counter() - granular_start
+            granular_sec_l.append(granular_sec)
+        end = time.perf_counter()
+        total_sec = end - start
+        total_sec_l.append(total_sec)
+    return total_sec_l, granular_sec_l, ragged_data
 
 
 def torch_bench(device):
@@ -93,37 +106,47 @@ def torch_bench(device):
     return [total_sec], ragged_data
 
 
-def pytaco_bench():
-    ragged_data = setup()
-    start = time.perf_counter()
-    # effectively 0-fill to a sparse tensor:
-    n = ragged_data.shape[0]
-    # pytaco cannot accept the ragged Python object directly
-    A = pt.tensor([n, n],
-                  pt.format([dense, compressed]),
-                  name="A",
-                  dtype=pt.float64)
-    # pay the cost to fill in the CSR-like array
-    for row in range(len(ragged_data)):
-        for col in range(len(ragged_data[row])):
-            A.insert([row, col], ragged_data[row][col])
-    granular_start = time.perf_counter()
-    ragged_data = pt.tensor_sqrt(A, out_format=pt.dense)
-    granular_sec = time.perf_counter() - granular_start
-    ragged_data = ragged_data.to_array()
-    end = time.perf_counter()
-    total_sec = end - start
-    return [total_sec], [granular_sec], ragged_data
+def pytaco_bench(n_trials: int = 1):
+    total_sec_l = []
+    granular_sec_l = []
+    for trial in range(n_trials):
+        ragged_data = setup()
+        start = time.perf_counter()
+        # effectively 0-fill to a sparse tensor:
+        n = ragged_data.shape[0]
+        # pytaco cannot accept the ragged Python object directly
+        A = pt.tensor([n, n],
+                      pt.format([dense, compressed]),
+                      name="A",
+                      dtype=pt.float64)
+        # pay the cost to fill in the CSR-like array
+        for row in range(len(ragged_data)):
+            for col in range(len(ragged_data[row])):
+                A.insert([row, col], ragged_data[row][col])
+        granular_start = time.perf_counter()
+        ragged_data = pt.tensor_sqrt(A, out_format=pt.dense)
+        granular_sec = time.perf_counter() - granular_start
+        granular_sec_l.append(granular_sec)
+        ragged_data = ragged_data.to_array()
+        end = time.perf_counter()
+        total_sec = end - start
+        total_sec_l.append(total_sec)
+    return total_sec_l, granular_sec_l, ragged_data
 
 
 def plot_results(bench_results):
     fig, ax = plt.subplots(1, 1)
     fig.set_size_inches(8, 4)
-    df = pd.DataFrame.from_dict(data=bench_results,
+    bench_avgs = {}
+    bench_stds = {}
+    for key, val in bench_results.items():
+        bench_avgs[key] = np.average(val)
+        bench_stds[key] = np.std(val)
+    df = pd.DataFrame.from_dict(data=bench_avgs,
                                 orient="index",
                                 columns=["Time (s)"])
-    df.plot.bar(ax=ax, legend=None, log=True)
-    ax.set_ylabel("Elementwise sqrt time (s)")
+    df.plot.bar(ax=ax, legend=None, log=True, yerr=list(bench_stds.values()))
+    ax.set_ylabel("Log of time (s)")
     fig.tight_layout()
     fig.savefig("bench_sqrt_ragged.png", dpi=300)
 
@@ -131,15 +154,15 @@ def plot_results(bench_results):
 def main_bench():
     orig_data = setup()
     bench_results = {}
-    bench_results["Raw Python"], result = raw_python_bench()
+    bench_results["Raw Python"], result = raw_python_bench(n_trials=3)
     check_result(orig_data, result)
-    bench_results["Awkward Array"], bench_results["Awkward Array granular"], result = awkward_bench()
+    bench_results["Awkward Array"], bench_results["Awkward Array granular"], result = awkward_bench(n_trials=3)
     check_result(orig_data, result)
-    bench_results["Tensorflow Ragged GPU"], bench_results["Tensorflow Ragged GPU granular"], result = tf_bench(device="/device:GPU:0")
+    bench_results["Tensorflow Ragged GPU"], bench_results["Tensorflow Ragged GPU granular"], result = tf_bench(device="/device:GPU:0", n_trials=3)
     check_result(orig_data, result)
-    bench_results["Tensorflow Ragged CPU"], bench_results["Tensorflow Ragged CPU granular"], result = tf_bench(device="/device:CPU:0")
+    bench_results["Tensorflow Ragged CPU"], bench_results["Tensorflow Ragged CPU granular"], result = tf_bench(device="/device:CPU:0", n_trials=3)
     check_result(orig_data, result)
-    bench_results["PyTaco"], bench_results["PyTaco granular"], result = pytaco_bench()
+    bench_results["PyTaco"], bench_results["PyTaco granular"], result = pytaco_bench(n_trials=3)
     check_result(orig_data, result)
     # NOTE: torch nested_tensor does not support sqrt op at this time
     #bench_results["torch_nested_cpu"], result = torch_bench(device="cpu")
