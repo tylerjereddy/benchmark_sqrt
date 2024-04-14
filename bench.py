@@ -150,16 +150,24 @@ def pytaco_bench(n_trials: int = 1):
 def plot_results(bench_results):
     fig, ax = plt.subplots(1, 1)
     fig.set_size_inches(8, 4)
-    bench_avgs = {}
-    bench_stds = {}
-    for key, val in bench_results.items():
-        bench_avgs[key] = np.average(val)
-        bench_stds[key] = np.std(val)
-    df = pd.DataFrame.from_dict(data=bench_avgs,
-                                orient="index",
-                                columns=["Time (s)"])
-    df.plot.bar(ax=ax, legend=None, log=True, yerr=list(bench_stds.values()), capsize=8)
+    colors = []
+    for key in bench_results.keys():
+        if "granular" in key:
+            colors.append("orange")
+        else:
+            colors.append("blue")
+    df = pd.DataFrame.from_dict(data=bench_results,
+                                orient="columns")
+    mean = df.mean()
+    std = df.std()
+    ax.bar(list(bench_results.keys()),
+           height=mean,
+           yerr=std,
+           color=colors,
+           log=True,
+           capsize=8)
     ax.set_ylabel("Log of time (s)")
+    ax.tick_params(axis='x', rotation=90)
     fig.tight_layout()
     fig.savefig("bench_sqrt_ragged.png", dpi=300)
 
@@ -169,13 +177,13 @@ def main_bench():
     bench_results = {}
     bench_results["Raw Python"], result = raw_python_bench(n_trials=3)
     check_result(orig_data, result)
-    bench_results["Awkward Array"], bench_results["Awkward Array granular"], result = awkward_bench(n_trials=3)
+    bench_results["Awkward Array"], bench_results["Awkward Array\ngranular"], result = awkward_bench(n_trials=3)
     check_result(orig_data, result)
-    bench_results["Tensorflow Ragged GPU"], bench_results["Tensorflow Ragged GPU granular"], result = tf_bench(device="/device:GPU:0", n_trials=3)
+    bench_results["Tensorflow Ragged GPU"], bench_results["Tensorflow Ragged GPU\ngranular"], result = tf_bench(device="/device:GPU:0", n_trials=3)
     check_result(orig_data, result)
-    bench_results["Tensorflow Ragged CPU"], bench_results["Tensorflow Ragged CPU granular"], result = tf_bench(device="/device:CPU:0", n_trials=3)
+    bench_results["Tensorflow Ragged CPU"], bench_results["Tensorflow Ragged CPU\ngranular"], result = tf_bench(device="/device:CPU:0", n_trials=3)
     check_result(orig_data, result)
-    bench_results["PyTaco"], bench_results["PyTaco granular"], result = pytaco_bench(n_trials=3)
+    bench_results["PyTaco"], bench_results["PyTaco\ngranular"], result = pytaco_bench(n_trials=3)
     check_result(orig_data, result)
     # NOTE: torch nested_tensor does not support sqrt op at this time
     #bench_results["torch_nested_cpu"], result = torch_bench(device="cpu")
